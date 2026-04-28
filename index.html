@@ -209,10 +209,14 @@ function parseCSV(text) {
 function apiGet(params) {
   return new Promise((resolve) => {
     const url = API + '?' + new URLSearchParams(params);
-    try {
-      navigator.sendBeacon(url);
-    } catch(e) {}
-    setTimeout(() => resolve({ success: true }), 2000);
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      if (iframe.parentNode) document.body.removeChild(iframe);
+      resolve({ success: true });
+    }, 3000);
   });
 }
 
