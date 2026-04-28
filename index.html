@@ -223,8 +223,14 @@ async function loadAll() {
       apiGet({ action: 'getEquipment' }),
       apiGet({ action: 'getBorrows' })
     ]);
-    equipment = Array.isArray(eq) ? eq.filter(e => e.id) : [];
-    borrows = Array.isArray(br) ? br.filter(b => b.borrower) : [];
+    // Normalize keys (trim spaces)
+    const normalize = (arr) => arr.map(obj => {
+      const n = {};
+      Object.keys(obj).forEach(k => n[k.trim()] = obj[k]);
+      return n;
+    });
+    equipment = Array.isArray(eq) ? normalize(eq).filter(e => e.id) : [];
+    borrows = Array.isArray(br) ? normalize(br).filter(b => b.borrower) : [];
     borrows.forEach(b => {
       if (!Array.isArray(b.items)) {
         b.items = b.items ? b.items.split(',').map(s => s.trim()) : [];
