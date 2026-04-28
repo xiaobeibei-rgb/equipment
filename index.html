@@ -37,10 +37,7 @@
   .name-link { color: #1a1a1a; font-weight: 500; cursor: pointer; border: none; background: none; font-size: 13px; text-align: left; }
   .name-link:hover { text-decoration: underline; }
   .badge { display: inline-block; font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
-  .badge-in { background: #dcfce7; color: #15803d; }
-  .badge-out { background: #fef3c7; color: #b45309; }
-  .badge-repair { background: #fee2e2; color: #b91c1c; }
-  .badge-returned { background: #e0e7ff; color: #4338ca; }
+  .badge-in { background: #dcfce7; color: #15803d; } .badge-out { background: #fef3c7; color: #b45309; } .badge-repair { background: #fee2e2; color: #b91c1c; } .badge-returned { background: #e0e7ff; color: #4338ca; }
   .thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; border: 1px solid #e5e5e3; cursor: pointer; }
   .thumb-empty { width: 40px; height: 40px; border-radius: 8px; background: #f5f5f3; border: 1px dashed #d5d5d3; display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow-y: auto; }
@@ -182,29 +179,9 @@
 
 <script>
 const API = 'https://equipment-proxy.lius5071.workers.dev';
-const CSV_EQ = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=0https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=0&single=true&output=csvsingle=truehttps://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=0&single=true&output=csvoutput=csv';
-const CSV_BR = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=32653267https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=32653267&single=true&output=csvsingle=truehttps://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=32653267&single=true&output=csvoutput=csv';
 
 let equipment = [], borrows = [], currentFilter = 'all';
 let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
-
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = []; let cur = '', inQ = false;
-    for (let c of line) {
-      if (c === '"') inQ = !inQ;
-      else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
-      else cur += c;
-    }
-    vals.push(cur);
-    const obj = {};
-    headers.forEach((h,i) => obj[h] = (vals[i]||'').trim().replace(/^"|"$/g,''));
-    return obj;
-  });
-}
 
 async function apiGet(params) {
   const url = API + '?' + new URLSearchParams(params);
@@ -223,7 +200,6 @@ async function loadAll() {
       apiGet({ action: 'getEquipment' }),
       apiGet({ action: 'getBorrows' })
     ]);
-    // Normalize keys (trim spaces)
     const normalize = (arr) => arr.map(obj => {
       const n = {};
       Object.keys(obj).forEach(k => n[k.trim()] = obj[k]);
