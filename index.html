@@ -130,9 +130,9 @@
   <div id="borrow" class="section">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div>
-        <div style="background:#fff;border-radius:12px;border:1px solid #e5e5e3;padding:20px;margin-bottom:16px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e5e5e3;padding:20px">
           <div style="font-weight:600;font-size:15px;margin-bottom:4px">新建借用申请</div>
-          <div style="font-size:12px;color:#888;margin-bottom:16px">提交后数据保存到 Google Sheets</div>
+          <div style="font-size:12px;color:#888;margin-bottom:16px">提交后自动写入 Google Sheets</div>
           <div class="form-row">
             <div class="form-group"><label>借用人姓名</label><input id="b-name" placeholder="姓名"></div>
             <div class="form-group"><label>联系方式</label><input id="b-contact" placeholder="邮箱或电话"></div>
@@ -151,7 +151,7 @@
       </div>
       <div>
         <div style="font-weight:600;font-size:15px;margin-bottom:12px">借用记录</div>
-        <div id="borrow-list"><div class="loading"><div class="spinner"></div>加载中...</div></div>
+        <div id="borrow-list"></div>
       </div>
     </div>
   </div>
@@ -171,7 +171,7 @@
 
   <div id="return" class="section">
     <div style="font-weight:600;font-size:15px;margin-bottom:16px">待归还器材</div>
-    <div id="return-list"><div class="loading"><div class="spinner"></div>加载中...</div></div>
+    <div id="return-list"></div>
   </div>
 </div>
 
@@ -181,7 +181,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbxojzNj6t9tUvLKzFEZQyiL6pABLcoEzUv5VDt_eJ-0pNw_AiM6SCNViOlTlv5QaMM/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyaiped90iBHEnFgQ3KjSR_FQoE7OqcFYRzdFuIhiqFIBUrh5rXheYG9n5U6aIEkfZB/exec';
 const CSV_EQ = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSmwv9MAUPD_hp3hllvpvEhcLsx9Xb6ARDgUVHwnKrVmgDnwlmlyx_soHAqa_-DnoIgs_xdWKRAuQin/pub?gid=0&single=true&output=csv';
 const CSV_BR = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSmwv9MAUPD_hp3hllvpvEhcLsx9Xb6ARDgUVHwnKrVmgDnwlmlyx_soHAqa_-DnoIgs_xdWKRAuQin/pub?gid=902632493&single=true&output=csv';
 
@@ -193,8 +193,7 @@ function parseCSV(text) {
   if (lines.length < 2) return [];
   const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
   return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = [];
-    let cur = '', inQ = false;
+    const vals = []; let cur = '', inQ = false;
     for (let c of line) {
       if (c === '"') inQ = !inQ;
       else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
@@ -202,8 +201,33 @@ function parseCSV(text) {
     }
     vals.push(cur);
     const obj = {};
-    headers.forEach((h, i) => obj[h] = (vals[i]||'').trim().replace(/^"|"$/g,''));
+    headers.forEach((h,i) => obj[h] = (vals[i]||'').trim().replace(/^"|"$/g,''));
     return obj;
+  });
+}
+
+function apiGet(params) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      delete window[cb];
+      if (script.parentNode) document.body.removeChild(script);
+      reject(new Error('timeout'));
+    }, 10000);
+    window[cb] = (data) => {
+      clearTimeout(timeout);
+      delete window[cb];
+      if (script.parentNode) document.body.removeChild(script);
+      resolve(data);
+    };
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cb];
+      reject(new Error('script error'));
+    };
+    script.src = API + '?' + new URLSearchParams({...params, callback: cb});
+    document.body.appendChild(script);
   });
 }
 
@@ -217,8 +241,7 @@ async function loadAll() {
     equipment = parseCSV(eqText).filter(e => e.id);
     borrows = parseCSV(brText).filter(b => b.borrower);
     borrows.forEach(b => {
-      if (b.items && typeof b.items === 'string') b.items = b.items.split(',').map(s => s.trim());
-      else b.items = [];
+      b.items = b.items ? b.items.split(',').map(s => s.trim()) : [];
     });
     updateStats(); renderTable(); renderBorrowList(); renderReturn(); renderCal();
     const now = new Date().toLocaleTimeString('zh',{hour:'2-digit',minute:'2-digit'});
@@ -228,13 +251,6 @@ async function loadAll() {
     document.getElementById('sync-status').textContent = '同步失败，请重试';
     showToast('同步失败');
   }
-}
-
-async function apiPost(body) {
-  try {
-    await fetch(API, { method:'POST', mode:'no-cors', body: JSON.stringify(body) });
-    return { success: true };
-  } catch(e) { return { error: e.message }; }
 }
 
 function updateStats() {
@@ -300,12 +316,14 @@ function triggerUpload(id) { document.getElementById('file-input').click(); }
 function handleImg(id, input) {
   const file = input.files[0]; if(!file) return;
   const reader = new FileReader();
-  reader.onload = async function(e) {
+  reader.onload = async function(ev) {
     const eq = equipment.find(x=>x.id===id); if(!eq) return;
-    eq.img = e.target.result;
+    eq.img = ev.target.result;
     showToast('正在保存图片...');
-    await apiPost({ action:'updateEquipment', ...eq });
-    showToast('图片已保存，同步后可见');
+    try {
+      await apiGet({ action:'updateEquipment', ...eq });
+      showToast('图片已保存 ✓');
+    } catch(e) { showToast('保存失败，请重试'); }
     openDetail(id); renderTable();
   };
   reader.readAsDataURL(file);
@@ -318,8 +336,10 @@ async function saveDesc(id) {
   const eq = equipment.find(x=>x.id===id);
   eq.note = document.getElementById('desc-edit').value;
   showToast('正在保存...');
-  await apiPost({ action:'updateEquipment', ...eq });
-  showToast('已保存，30秒后同步可见');
+  try {
+    await apiGet({ action:'updateEquipment', ...eq });
+    showToast('说明已保存 ✓');
+  } catch(e) { showToast('保存失败，请重试'); }
   openDetail(id);
 }
 
@@ -350,22 +370,26 @@ async function addEquipment() {
   if(!id||!name) { showToast('请填写编号和名称'); return; }
   const newEq = { id, name, cat:document.getElementById('f-cat').value, status:document.getElementById('f-status').value, borrower:'', returnDate:'', note:document.getElementById('f-note').value, img:'' };
   showToast('正在保存...');
-  await apiPost({ action:'saveEquipment', ...newEq });
-  equipment.push(newEq);
-  updateStats(); renderTable(); closeModal();
-  showToast('已保存！点同步数据刷新');
+  try {
+    await apiGet({ action:'saveEquipment', ...newEq });
+    equipment.push(newEq);
+    updateStats(); renderTable(); closeModal();
+    showToast('器材已保存 ✓ 稍后同步可见');
+  } catch(e) { showToast('保存失败，请重试'); }
 }
 
 async function doReturn(id) {
   if(!confirm('确认归还该器材？')) return;
   const eq = equipment.find(e=>e.id===id); if(!eq) return;
-  eq.status='在库'; eq.borrower=''; eq.returnDate='';
-  const b = borrows.find(b=>(b.items||[]).includes(id)&&b.status==='借出中');
-  if(b) b.status='已归还';
   showToast('正在更新...');
-  await apiPost({ action:'updateBorrowStatus', id });
-  updateStats(); renderTable(); renderBorrowList(); renderReturn();
-  showToast('归还成功！点同步数据刷新');
+  try {
+    await apiGet({ action:'updateBorrowStatus', id });
+    eq.status='在库'; eq.borrower=''; eq.returnDate='';
+    const b = borrows.find(b=>(b.items||[]).includes(id)&&b.status==='借出中');
+    if(b) b.status='已归还';
+    updateStats(); renderTable(); renderBorrowList(); renderReturn();
+    showToast('归还成功 ✓');
+  } catch(e) { showToast('操作失败，请重试'); }
 }
 
 function renderChecklist() {
@@ -381,14 +405,16 @@ async function submitBorrow() {
   const returnDate=document.getElementById('b-return').value;
   const items=[...document.querySelectorAll('#eq-checklist input:checked')].map(c=>c.value);
   if(!name||!outDate||!returnDate||!items.length) { showToast('请填写完整信息并选择器材'); return; }
-  const record = { borrower:name, contact, items, outDate, returnDate, note:document.getElementById('b-note').value, status:'借出中' };
   showToast('正在提交...');
-  await apiPost({ action:'saveBorrow', ...record });
-  borrows.unshift(record);
-  items.forEach(id=>{ const eq=equipment.find(e=>e.id===id); if(eq){eq.status='借出';eq.borrower=name;eq.returnDate=returnDate;} });
-  ['b-name','b-contact','b-out','b-return','b-note'].forEach(i=>document.getElementById(i).value='');
-  updateStats(); renderChecklist(); renderBorrowList(); renderTable();
-  showToast('申请已提交！点同步数据刷新');
+  try {
+    await apiGet({ action:'saveBorrow', borrower:name, contact, items:items.join(','), outDate, returnDate, note:document.getElementById('b-note').value });
+    const record = { borrower:name, contact, items, outDate, returnDate, note:document.getElementById('b-note').value, status:'借出中' };
+    borrows.unshift(record);
+    items.forEach(id=>{ const eq=equipment.find(e=>e.id===id); if(eq){eq.status='借出';eq.borrower=name;eq.returnDate=returnDate;} });
+    ['b-name','b-contact','b-out','b-return','b-note'].forEach(i=>document.getElementById(i).value='');
+    updateStats(); renderChecklist(); renderBorrowList(); renderTable();
+    showToast('借用申请已提交 ✓');
+  } catch(e) { showToast('提交失败，请重试'); }
 }
 
 function renderBorrowList() {
