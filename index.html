@@ -208,11 +208,11 @@ function parseCSV(text) {
 
 function apiGet(params) {
   return new Promise((resolve) => {
+    const img = new Image();
     const url = API + '?' + new URLSearchParams(params);
-    fetch(url, { mode: 'no-cors' })
-      .then(() => resolve({ success: true }))
-      .catch(() => resolve({ success: true }));
-    setTimeout(() => resolve({ success: true }), 3000);
+    img.onload = img.onerror = () => resolve({ success: true });
+    img.src = url;
+    setTimeout(() => resolve({ success: true }), 5000);
   });
 }
 
