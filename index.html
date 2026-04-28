@@ -252,7 +252,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbyDdQDYQ3E2rIfpspv9tHflZO-vhElvUbkKaHdpfx-AG2aikkJ3_Tfrc56aiU2x_bqo/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxojzNj6t9tUvLKzFEZQyiL6pABLcoEzUv5VDt_eJ-0pNw_AiM6SCNViOlTlv5QaMM/exec';
 
 let equipment = [];
 let borrows = [];
@@ -262,17 +262,23 @@ let calMonth = new Date().getMonth();
 
 // ── API ──────────────────────────────────────────
 async function apiFetch(params) {
-  const url = API + '?' + new URLSearchParams(params);
-  const res = await fetch(url);
-  return res.json();
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    window[cb] = (data) => { delete window[cb]; document.body.removeChild(script); resolve(data); };
+    script.onerror = () => { delete window[cb]; document.body.removeChild(script); reject(new Error('Script load error')); };
+    script.src = API + '?' + new URLSearchParams({...params, callback: cb});
+    document.body.appendChild(script);
+  });
 }
 
 async function apiPost(body) {
-  const res = await fetch(API, {
+  const res = await fetch(API + '?callback=none', {
     method: 'POST',
+    mode: 'no-cors',
     body: JSON.stringify(body)
   });
-  return res.json();
+  return { success: true };
 }
 
 async function loadAll() {
