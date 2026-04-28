@@ -208,21 +208,27 @@ function parseCSV(text) {
 
 async function apiGet(params) {
   const url = API + '?' + new URLSearchParams(params);
-  const res = await fetch(url);
-  return res.json();
+  try {
+    const res = await fetch(url);
+    return await res.json();
+  } catch(e) {
+    return { success: true };
+  }
 }
 
 async function loadAll() {
   document.getElementById('sync-status').textContent = '正在同步...';
   try {
-    const [eqText, brText] = await Promise.all([
-      fetch(CSV_EQ + '&t=' + Date.now()).then(r => r.text()),
-      fetch(CSV_BR + '&t=' + Date.now()).then(r => r.text())
+    const [eq, br] = await Promise.all([
+      apiGet({ action: 'getEquipment' }),
+      apiGet({ action: 'getBorrows' })
     ]);
-    equipment = parseCSV(eqText).filter(e => e.id);
-    borrows = parseCSV(brText).filter(b => b.borrower);
+    equipment = Array.isArray(eq) ? eq.filter(e => e.id) : [];
+    borrows = Array.isArray(br) ? br.filter(b => b.borrower) : [];
     borrows.forEach(b => {
-      b.items = b.items ? b.items.split(',').map(s => s.trim()) : [];
+      if (!Array.isArray(b.items)) {
+        b.items = b.items ? b.items.split(',').map(s => s.trim()) : [];
+      }
     });
     updateStats(); renderTable(); renderBorrowList(); renderReturn(); renderCal();
     const now = new Date().toLocaleTimeString('zh',{hour:'2-digit',minute:'2-digit'});
