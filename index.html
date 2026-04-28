@@ -181,7 +181,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbzVTFHeB64FjH9HrG_BX0YCkVhcUMmG_DOzZM3g2wXx2NcbuXz35KXxr2xd8khwZ9_j/exec';
+const API = 'https://equipment-proxy.lius5071.workers.dev';
 const CSV_EQ = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=0https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=0&single=true&output=csvsingle=truehttps://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=0&single=true&output=csvoutput=csv';
 const CSV_BR = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=32653267https://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=32653267&single=true&output=csvsingle=truehttps://docs.google.com/spreadsheets/d/e/2PACX-1vS3STyfXwI1Qy6opDsDwch2MJNrIVzoI5jqtT4jyOL8laZ8sHkLleO8Xn6MzopYJKztu66NGgvAOZ1a/pub?gid=32653267&single=true&output=csvoutput=csv';
 
@@ -206,18 +206,10 @@ function parseCSV(text) {
   });
 }
 
-function apiGet(params) {
-  return new Promise((resolve) => {
-    const url = API + '?' + new URLSearchParams(params);
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-      if (iframe.parentNode) document.body.removeChild(iframe);
-      resolve({ success: true });
-    }, 3000);
-  });
+async function apiGet(params) {
+  const url = API + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  return res.json();
 }
 
 async function loadAll() {
